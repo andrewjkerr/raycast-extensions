@@ -53,6 +53,10 @@ function isIssueKey(query: string): boolean {
 }
 
 function buildJql(query: string): string {
+  if (query.startsWith("^")) {
+    return query.substring(1)
+  }
+
   const spaceAndInvalidChars = /[ "]/
   const terms = query.split(spaceAndInvalidChars).filter((term) => term.length > 0)
 
@@ -106,10 +110,15 @@ async function searchIssues(query: string, filter?: IssueFilter): Promise<Result
   const jql = jqlFor(query, filter)
   console.debug(jql)
 
+  let errorText = "Unknown project, issue type or assignee"
+  if (query.startsWith("^")) {
+    errorText = `Invalid JQL: ${query.substring(1)}`
+  }
+
   const result = await jiraFetchObject<Issues>(
     "/rest/api/3/search",
     { jql, fields },
-    { 400: ErrorText("Invalid Query", "Unknown project, issue type or assignee") }
+    { 400: ErrorText("Invalid Query", errorText) }
   )
   const mapResult = async (issue: Issue): Promise<ResultItem> => ({
     id: issue.id,
@@ -141,7 +150,7 @@ function openIssueKey(query: string): ResultItem | undefined {
 export default function SearchIssueCommand() {
   return SearchCommand(
     searchIssues,
-    "Search issues by text, @project, #type, ~assignee",
+    "Search issues by text, @project, #type, ~assignee or ^jql",
     {
       tooltip: "Filters",
       values: [
